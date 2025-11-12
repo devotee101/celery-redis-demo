@@ -147,6 +147,9 @@ Once tasks have been processed and articles stored in MinIO, retrieve them via t
 # List all companies
 curl http://localhost:8000/companies
 
+# Get all news articles for a company (from all sources)
+curl http://localhost:8000/companies/Airbus
+
 # List sources for a company
 curl http://localhost:8000/companies/Airbus/sources
 
@@ -163,6 +166,7 @@ Or use the Swagger UI at http://localhost:8000/docs.
 - `GET /` - API information
 - `GET /health` - Health check
 - `GET /companies` - List all companies with articles
+- `GET /companies/{company}` - Get all news articles for a company (from all sources)
 - `GET /companies/{company}/sources` - List sources for a company
 - `GET /articles?company={company}&source={source}` - Get articles for a company/source pair
 

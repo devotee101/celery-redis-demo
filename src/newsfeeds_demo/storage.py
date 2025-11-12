@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import boto3
 from botocore.config import Config
@@ -174,4 +174,53 @@ def list_sources_for_company(company: str, bucket_name: str) -> list[str]:
         return sorted(set(sources))
     except ClientError as exc:
         raise RuntimeError(f"Failed to list sources for {company}: {exc}") from exc
+
+
+def get_articles_for_company(company: str, bucket_name: str) -> list[dict[str, Any]]:
+    """Retrieve all article payloads stored for a company across every source."""
+    client = get_s3_client()
+    prefix = f"{company}/"
+    continuation_token = None
+    articles: list[dict[str, Any]] = []
+
+    try:
+        while True:
+            kwargs = {"Bucket": bucket_name, "Prefix": prefix}
+            if continuation_token:
+                kwargs["ContinuationToken"] = continuation_token
+
+            response = client.list_objects_v2(**kwargs)
+            for obj in response.get("Contents", []):
+                key = obj.get("Key", "")
+                if not key.endswith(".json"):
+                    continue
+
+                try:
+                    payload = client.get_object(Bucket=bucket_name, Key=key)["Body"].read()
+                    data = json.loads(payload.decode("utf-8"))
+                except ClientError as exc:
+                    error_code = exc.response.get("Error", {}).get("Code")
+                    if error_code in ("NoSuchKey", "404"):
+                        continue
+                    raise RuntimeError(
+                        f"Failed to retrieve article object {key}: {exc}"
+                    ) from exc
+
+                if isinstance(data, dict):
+                    data.setdefault("company", company)
+                    if not data.get("source"):
+                        source_slug = Path(key).stem.replace("_", " ")
+                        data["source"] = source_slug
+                    articles.append(data)
+
+            if not response.get("IsTruncated"):
+                break
+
+            continuation_token = response.get("NextContinuationToken")
+
+        return articles
+    except ClientError as exc:
+        raise RuntimeError(
+            f"Failed to list article objects for {company}: {exc}"
+        ) from exc
 

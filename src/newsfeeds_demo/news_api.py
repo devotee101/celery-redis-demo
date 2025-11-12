@@ -6,7 +6,12 @@ from typing import Optional
 import os
 import logging
 
-from .storage import get_article_json, list_companies, list_sources_for_company
+from .storage import (
+    get_article_json,
+    get_articles_for_company,
+    list_companies,
+    list_sources_for_company,
+)
 from .init_minio import init_bucket
 
 logging.basicConfig(level=logging.INFO)
@@ -60,6 +65,71 @@ async def list_all_companies():
         raise HTTPException(status_code=500, detail=f"Failed to list companies: {str(e)}")
 
 
+@app.get("/companies/{company}", tags=["Companies"])
+async def get_company_news(
+    company: str,
+    limit_per_source: Optional[int] = Query(
+        None,
+        ge=1,
+        le=100,
+        description="Optional limit applied to the number of articles returned per source",
+    ),
+):
+    """
+    Retrieve all news articles for a company across every available source.
+
+    Args:
+        company: Name of the company
+        limit_per_source: Optional limit for the number of articles per source
+
+    Returns:
+        Aggregated article data across all sources
+    """
+    bucket_name = os.getenv("MINIO_BUCKET", "newsfeeds")
+    try:
+        articles = get_articles_for_company(company, bucket_name)
+        if not articles:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No articles found for company '{company}'",
+            )
+
+        total_articles_available = sum(
+            len(entry.get("articles", []))
+            for entry in articles
+            if isinstance(entry.get("articles"), list)
+        )
+
+        if limit_per_source is not None:
+            trimmed_articles = []
+            for entry in articles:
+                entry_copy = dict(entry)
+                if isinstance(entry_copy.get("articles"), list):
+                    entry_copy["articles"] = entry_copy["articles"][:limit_per_source]
+                trimmed_articles.append(entry_copy)
+        else:
+            trimmed_articles = articles
+
+        sources = sorted(
+            {entry.get("source") for entry in articles if entry.get("source")}
+        )
+
+        return {
+            "company": company,
+            "source_count": len(sources),
+            "sources": sources,
+            "total_articles_available": total_articles_available,
+            "items": trimmed_articles,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve articles for company: {str(e)}",
+        )
+
+
 @app.get("/companies/{company}/sources", tags=["Companies"])
 async def list_company_sources(company: str):
     """
@@ -111,6 +181,8 @@ async def get_article(
         raise HTTPException(
             status_code=500, detail=f"Failed to retrieve article: {str(e)}"
         )
+
+
 
 
 if __name__ == "__main__":

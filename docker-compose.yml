@@ -73,14 +73,14 @@ services:
       - SEARCH_API_BASE_URL=http://search-api:8000
     volumes:
       - ./src:/app
-    command: celery -A newsfeeds_demo.celery_app worker --loglevel=info --concurrency=5
+    command: celery -A newsfeeds_demo.celery_app worker --loglevel=info --concurrency=5 --autoreload
 
   news-api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: newsfeeds-news-api
-    command: python -m newsfeeds_demo.news_api
+    command: uvicorn newsfeeds_demo.news_api:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       minio:
         condition: service_healthy
@@ -101,7 +101,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: newsfeeds-search-api
-    command: python -m newsfeeds_demo.search_api
+    command: uvicorn newsfeeds_demo.search_api:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8002:8000"
     volumes:
@@ -112,7 +112,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: newsfeeds-companies-api
-    command: python -m newsfeeds_demo.companies_api
+    command: uvicorn newsfeeds_demo.companies_api:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       postgres:
         condition: service_healthy

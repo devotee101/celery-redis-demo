@@ -1,11 +1,53 @@
-version: "3.9"
-
 services:
   redis:
     image: redis:7.2-alpine
     container_name: newsfeeds-redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: newsfeeds-postgres
+    environment:
+      POSTGRES_USER: newsfeeds
+      POSTGRES_PASSWORD: newsfeeds
+      POSTGRES_DB: newsfeeds
+    ports:
+      - "55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newsfeeds"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: newsfeeds-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: newsfeedadmin
+      MINIO_ROOT_PASSWORD: newsfeedadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -f http://localhost:9000/minio/health/live || exit 1",
+        ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
 
   worker:
     build:
@@ -13,10 +55,89 @@ services:
       dockerfile: Dockerfile.worker
     container_name: newsfeeds-celery-worker
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      search-api:
+        condition: service_started
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_BACKEND_URL=redis://redis:6379/1
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=newsfeedadmin
+      - MINIO_SECRET_KEY=newsfeedadmin
+      - MINIO_BUCKET=newsfeeds
+      - S3_USE_SSL=false
+      - S3_REGION=us-east-1
+      - SEARCH_API_BASE_URL=http://search-api:8000
     volumes:
       - ./src:/app
     command: celery -A newsfeeds_demo.celery_app worker --loglevel=info --concurrency=5
+
+  news-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.news-api
+    container_name: newsfeeds-news-api
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=newsfeedadmin
+      - MINIO_SECRET_KEY=newsfeedadmin
+      - MINIO_BUCKET=newsfeeds
+      - S3_USE_SSL=false
+      - S3_REGION=us-east-1
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app
+
+  search-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.search-api
+    container_name: newsfeeds-search-api
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./src:/app
+
+  companies-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.companies-api
+    container_name: newsfeeds-companies-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://newsfeeds:newsfeeds@postgres:5432/newsfeeds
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./src:/app
+      - ./config:/config:ro
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.scheduler
+    container_name: newsfeeds-scheduler
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://newsfeeds:newsfeeds@postgres:5432/newsfeeds
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - SCHEDULE_INTERVAL_HOURS=4
+    volumes:
+      - ./src:/app
+
+volumes:
+  postgres_data:
+  minio_data:

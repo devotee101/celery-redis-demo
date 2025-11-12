@@ -70,7 +70,7 @@ This will start:
 
 - **News API Swagger**: http://localhost:8000/docs
 - **Companies API Swagger**: http://localhost:8001/docs
-- **MinIO Console**: http://localhost:9001 (login: minioadmin/minioadmin)
+- **MinIO Console**: http://localhost:9001 (login: newsfeedadmin/newsfeedadmin)
 - **Search API Swagger**: http://localhost:8002/docs
 
 ### 3. Initialize Database

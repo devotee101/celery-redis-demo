@@ -10,5 +10,6 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY src/ /app
 
-CMD ["python", "-m", "newsfeeds_demo.companies_api"]
+# Default command can be overridden in docker-compose.yml
+CMD ["python", "--version"]
 

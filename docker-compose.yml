@@ -73,7 +73,7 @@ services:
       - SEARCH_API_BASE_URL=http://search-api:8000
     volumes:
       - ./src:/app
-    command: celery -A newsfeeds_demo.celery_app worker --loglevel=info --concurrency=5 --autoreload
+    command: celery -A newsfeeds_demo.celery_app worker --loglevel=info --concurrency=5
 
   news-api:
     build:

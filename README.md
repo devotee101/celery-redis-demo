@@ -25,11 +25,7 @@ The system consists of the following components:
 ```
 .
 ├── docker-compose.yml          # Orchestrates all services
-├── Dockerfile.worker           # Celery worker image
-├── Dockerfile.news-api         # News API service image
-├── Dockerfile.companies-api    # Companies API service image
-├── Dockerfile.search-api       # Dummy Search API service image
-├── Dockerfile.scheduler        # Scheduler service image
+├── Dockerfile                  # Base image for all Python services
 ├── requirements.txt            # Python dependencies
 ├── config/
 │   └── companies.json         # Sample company/source configuration
@@ -52,7 +48,7 @@ The system consists of the following components:
 ### 1. Start All Services
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 This will start:
@@ -307,16 +303,16 @@ This codebase follows UK Government coding standards:
 
 ## Stopping Services
 
-Press `Ctrl+C` in the terminal running `docker-compose up`, then remove containers:
+Press `Ctrl+C` in the terminal running `docker compose up`, then remove containers:
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 To also remove volumes (database and MinIO data):
 
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
 ## Production Considerations

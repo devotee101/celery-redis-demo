@@ -139,6 +139,26 @@ python -m newsfeeds_demo.cli --config config/companies.json
 
 The scheduler service automatically reads all companies and their sources from PostgreSQL every 4 hours and enqueues tasks. You can adjust the interval by setting the `SCHEDULE_INTERVAL_HOURS` environment variable in `docker-compose.yml`.
 
+To force the scheduler to run immediately (without waiting for the next scheduled interval):
+
+```bash
+docker compose run --rm scheduler python -m newsfeeds_demo.scheduler --once
+```
+
+This will enqueue tasks for all companies and their sources from PostgreSQL and then exit.
+
+To exec into the running scheduler container:
+
+```bash
+docker exec -it newsfeeds-scheduler /bin/bash
+```
+
+Or using docker compose:
+
+```bash
+docker compose exec scheduler /bin/bash
+```
+
 ### 6. Retrieve Articles
 
 Once tasks have been processed and articles stored in MinIO, retrieve them via the News API:

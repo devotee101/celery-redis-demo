@@ -3,6 +3,7 @@
 import os
 import time
 import logging
+import argparse
 from sqlalchemy.orm import Session
 
 from .database import get_session_local, Company
@@ -84,5 +85,17 @@ def run_scheduler():
 
 
 if __name__ == "__main__":
-    run_scheduler()
+    parser = argparse.ArgumentParser(description="Scheduler service for enqueueing news feed tasks")
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Run the scheduler once immediately and exit (instead of running in a loop)",
+    )
+    args = parser.parse_args()
+
+    if args.once:
+        logger.info("Running scheduler once (manual trigger)")
+        enqueue_company_source_tasks()
+    else:
+        run_scheduler()
 
